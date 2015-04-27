@@ -35,24 +35,24 @@ namespace flatbuffers {
 // Additionally, Parser::ParseType assumes bool..string is a contiguous range
 // of type tokens.
 #define FLATBUFFERS_GEN_TYPES_SCALAR(TD) \
-  TD(NONE,   "",       uint8_t,  byte,   byte,    byte) \
-  TD(UTYPE,  "",       uint8_t,  byte,   byte,    byte) /* begin scalar/int */ \
-  TD(BOOL,   "bool",   uint8_t,  boolean,byte,    bool) \
-  TD(CHAR,   "byte",   int8_t,   byte,   int8,    sbyte) \
-  TD(UCHAR,  "ubyte",  uint8_t,  byte,   byte,    byte) \
-  TD(SHORT,  "short",  int16_t,  short,  int16,   short) \
-  TD(USHORT, "ushort", uint16_t, short,  uint16,  ushort) \
-  TD(INT,    "int",    int32_t,  int,    int32,   int) \
-  TD(UINT,   "uint",   uint32_t, int,    uint32,  uint) \
-  TD(LONG,   "long",   int64_t,  long,   int64,   long) \
-  TD(ULONG,  "ulong",  uint64_t, long,   uint64,  ulong)  /* end int */ \
-  TD(FLOAT,  "float",  float,    float,  float32, float)  /* begin float */ \
-  TD(DOUBLE, "double", double,   double, float64, double) /* end float/scalar */
+  TD(NONE,   "",       uint8_t,  byte,   byte,    byte,   u8) \
+  TD(UTYPE,  "",       uint8_t,  byte,   byte,    byte,   u8) /* begin scalar/int */ \
+  TD(BOOL,   "bool",   uint8_t,  boolean,byte,    bool,   bool) \
+  TD(CHAR,   "byte",   int8_t,   byte,   int8,    sbyte,  i8) \
+  TD(UCHAR,  "ubyte",  uint8_t,  byte,   byte,    byte,   u8) \
+  TD(SHORT,  "short",  int16_t,  short,  int16,   short,  i16) \
+  TD(USHORT, "ushort", uint16_t, short,  uint16,  ushort, u16) \
+  TD(INT,    "int",    int32_t,  int,    int32,   int,    i32) \
+  TD(UINT,   "uint",   uint32_t, int,    uint32,  uint,   u32) \
+  TD(LONG,   "long",   int64_t,  long,   int64,   long,   i64) \
+  TD(ULONG,  "ulong",  uint64_t, long,   uint64,  ulong,  u64)  /* end int */ \
+  TD(FLOAT,  "float",  float,    float,  float32, float,  f32)  /* begin float */ \
+  TD(DOUBLE, "double", double,   double, float64, double, f64) /* end float/scalar */
 #define FLATBUFFERS_GEN_TYPES_POINTER(TD) \
-  TD(STRING, "string", Offset<void>, int, int, int) \
-  TD(VECTOR, "",       Offset<void>, int, int, int) \
-  TD(STRUCT, "",       Offset<void>, int, int, int) \
-  TD(UNION,  "",       Offset<void>, int, int, int)
+  TD(STRING, "string", Offset<void>, int, int, int, isize) \
+  TD(VECTOR, "",       Offset<void>, int, int, int, isize) \
+  TD(STRUCT, "",       Offset<void>, int, int, int, isize) \
+  TD(UNION,  "",       Offset<void>, int, int, int, isize)
 
 // The fields are:
 // - enum
@@ -83,13 +83,13 @@ switch (type) {
 __extension__  // Stop GCC complaining about trailing comma with -Wpendantic.
 #endif
 enum BaseType {
-  #define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE) \
+  #define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE, RTYPE) \
       BASE_TYPE_ ## ENUM,
     FLATBUFFERS_GEN_TYPES(FLATBUFFERS_TD)
   #undef FLATBUFFERS_TD
 };
 
-#define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE) \
+#define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE, RTYPE) \
     static_assert(sizeof(CTYPE) <= sizeof(largest_scalar_t), \
                   "define largest_scalar_t as " #CTYPE);
   FLATBUFFERS_GEN_TYPES(FLATBUFFERS_TD)
@@ -439,6 +439,13 @@ extern bool GenerateCPP(const Parser &parser,
                         const std::string &path,
                         const std::string &file_name,
                         const GeneratorOptions &opts);
+
+// Generate Rust files from the definitions in the Parser object.
+// See idl_gen_rs.cpp
+bool GenerateRust(const Parser &parser,
+                  const std::string &path,
+                  const std::string &file_name,
+                  const GeneratorOptions &opts);
 
 // Generate Go files from the definitions in the Parser object.
 // See idl_gen_go.cpp.

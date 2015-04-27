@@ -49,7 +49,7 @@ static std::string WrapInNameSpace(const Parser &parser,
 static std::string GenTypeBasic(const Parser &parser, const Type &type,
                                 bool real_enum) {
   static const char *ctypename[] = {
-    #define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE) #CTYPE,
+    #define FLATBUFFERS_TD(ENUM, IDLTYPE, CTYPE, JTYPE, GTYPE, NTYPE, RTYPE) #CTYPE,
       FLATBUFFERS_GEN_TYPES(FLATBUFFERS_TD)
     #undef FLATBUFFERS_TD
   };
