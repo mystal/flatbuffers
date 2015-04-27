@@ -66,9 +66,9 @@ static std::string GenTypeWire(const Parser &parser, const Type &type,
 static std::string GenTypePointer(const Parser &parser, const Type &type) {
   switch (type.base_type) {
     case BASE_TYPE_STRING:
-      return "flatbuffers::String";
+      return "fb::String";
     case BASE_TYPE_VECTOR:
-      return "flatbuffers::Vector<" +
+      return "fb::Vector<" +
              GenTypeWire(parser, type.VectorType(), "", false) + ">";
     case BASE_TYPE_STRUCT: {
       return WrapInModule(parser, *type.struct_def);
@@ -88,7 +88,7 @@ static std::string GenTypeWire(const Parser &parser, const Type &type,
     ? GenTypeBasic(parser, type, real_enum) + postfix
     : IsStruct(type)
       ? "&" + GenTypePointer(parser, type)
-      : "flatbuffers::Offset<" + GenTypePointer(parser, type) + ">" + postfix;
+      : "fb::Offset<" + GenTypePointer(parser, type) + ">" + postfix;
 }
 
 // Return a C++ type for any type (scalar/pointer) that reflects its
@@ -201,7 +201,7 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
 
   GenComment(struct_def.doc_comment, code_ptr, nullptr);
   code += "pub struct " + struct_def.name + " {\n";
-  code += "    inner: flatbuffers::Table,\n";
+  code += "    inner: fb::Table,\n";
   code += "}\n\n";
 
 
@@ -263,6 +263,8 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
     }
   }
 
+  code += "}\n\n";
+
   // // TODO: Implement Verifiers
 
   // // Generate a verifier function that can check a buffer from an untrusted
@@ -322,55 +324,63 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
   // code += ";\n  }\n";
   // code += "};\n\n";
 
-  // // TODO: Implement Builders
+  // TODO: Implement Builders
 
-  // // Generate a builder struct, with methods of the form:
-  // // void add_name(type name) { fbb_.AddElement<type>(offset, name, default); }
-  // code += "struct " + struct_def.name;
-  // code += "Builder {\n  flatbuffers::FlatBufferBuilder &fbb_;\n";
-  // code += "  flatbuffers::uoffset_t start_;\n";
-  // for (auto it = struct_def.fields.vec.begin();
-  //      it != struct_def.fields.vec.end();
-  //      ++it) {
-  //   auto &field = **it;
-  //   if (!field.deprecated) {
-  //     code += "  void add_" + field.name + "(";
-  //     code += GenTypeWire(parser, field.value.type, " ", true) + field.name;
-  //     code += ") { fbb_.Add";
-  //     if (IsScalar(field.value.type.base_type)) {
-  //       code += "Element<" + GenTypeWire(parser, field.value.type, "", false);
-  //       code += ">";
-  //     } else if (IsStruct(field.value.type)) {
-  //       code += "Struct";
-  //     } else {
-  //       code += "Offset";
-  //     }
-  //     code += "(" + NumToString(field.value.offset) + ", ";
-  //     code += GenUnderlyingCast(parser, field, false, field.name);
-  //     if (IsScalar(field.value.type.base_type))
-  //       code += ", " + field.value.constant;
-  //     code += "); }\n";
-  //   }
-  // }
-  // code += "  " + struct_def.name;
-  // code += "Builder(flatbuffers::FlatBufferBuilder &_fbb) : fbb_(_fbb) ";
-  // code += "{ start_ = fbb_.StartTable(); }\n";
-  // code += "  " + struct_def.name + "Builder &operator=(const ";
-  // code += struct_def.name + "Builder &);\n";
-  // code += "  flatbuffers::Offset<" + struct_def.name;
-  // code += "> Finish() {\n    auto o = flatbuffers::Offset<" + struct_def.name;
-  // code += ">(fbb_.EndTable(start_, ";
-  // code += NumToString(struct_def.fields.vec.size()) + "));\n";
-  // for (auto it = struct_def.fields.vec.begin();
-  //      it != struct_def.fields.vec.end();
-  //      ++it) {
-  //   auto &field = **it;
-  //   if (!field.deprecated && field.required) {
-  //     code += "    fbb_.Required(o, " + NumToString(field.value.offset);
-  //     code += ");  // " + field.name + "\n";
-  //   }
-  // }
-  // code += "    return o;\n  }\n};\n\n";
+  // Generate a builder struct, with methods of the form:
+  // void add_name(type name) { fbb_.AddElement<type>(offset, name, default); }
+  code += "pub struct " + struct_def.name;
+  code += "Builder {\n";
+  code += "    fbb:   &mut fb::FlatBufferBuilder,\n";
+  code += "    start: UOffset,\n";
+  code += "}\n\n";
+
+  code += "impl " + struct_def.name + "Builder {\n";
+  for (auto it = struct_def.fields.vec.begin();
+       it != struct_def.fields.vec.end();
+       ++it) {
+    auto &field = **it;
+    if (!field.deprecated) {
+      code += "    pub fn add_" + field.name + "(&mut self, ";
+      code += field.name + ": " + GenTypeWire(parser, field.value.type, "", true);
+      code += ") {\n";
+      code += "        self.fbb.add_";
+      if (IsScalar(field.value.type.base_type)) {
+        code += "scalar<" + GenTypeWire(parser, field.value.type, "", false);
+        code += ">";
+      } else if (IsStruct(field.value.type)) {
+        code += "struct";
+      } else {
+        code += "offset";
+      }
+      code += "(" + NumToString(field.value.offset) + ", ";
+      code += GenUnderlyingCast(field, false, field.name);
+      if (IsScalar(field.value.type.base_type))
+        code += ", " + field.value.constant;
+      code += ")\n    }\n\n";
+    }
+  }
+  code += "    pub fn new(fbb: &mut fb::FlatBufferBuilder) {\n";
+  code += "        let start = fbb.start_table();\n";
+  code += "        fb::FlatBufferBuilder {\n";
+  code += "            fbb:   fbb,\n";
+  code += "            start: start,\n";
+  code += "        }\n";
+  code += "    }\n\n";
+  code += "    pub fn  finish() -> fb::Offset<" + struct_def.name;
+  code += "> {\n";
+  code += "        let o = fb::Offset::new(";
+  code += "self.fbb.end_table(self.start, ";
+  code += NumToString(struct_def.fields.vec.size()) + "));\n";
+  for (auto it = struct_def.fields.vec.begin();
+       it != struct_def.fields.vec.end();
+       ++it) {
+    auto &field = **it;
+    if (!field.deprecated && field.required) {
+      code += "        // self.fbb.required(o, " + NumToString(field.value.offset);
+      code += ");  // " + field.name + "\n";
+    }
+  }
+  code += "        o\n    }\n}\n\n";
 
   // // Generate a convenient CreateX function that uses the above builder
   // // to create a table in one go.
@@ -475,7 +485,7 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
     auto &field = **it;
     code += "            " + field.name + ": ";
     if (IsScalar(field.value.type.base_type)) {
-      code += "flatbuffers::Endian::to_le(";
+      code += "fb::Endian::to_le(";
       code += GenUnderlyingCast(field, false, field.name);
       code += "),\n";
     } else {
@@ -490,7 +500,7 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
   code += "    }\n\n";
 
   // Generate accessor methods of the form:
-  // pub fn name(&self) { flatbuffers::Endian::from_le(self.name); }
+  // pub fn name(&self) { fb::Endian::from_le(self.name); }
   for (auto it = struct_def.fields.vec.begin();
        it != struct_def.fields.vec.end();
        ++it) {
@@ -501,7 +511,7 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
     code += " { ";
     code += GenUnderlyingCast(field, true,
       IsScalar(field.value.type.base_type)
-        ? "flatbuffers::Endian::from_le(self." + field.name + ")"
+        ? "fb::Endian::from_le(self." + field.name + ")"
         : "self." + field.name);
     code += " }\n\n";
   }
@@ -539,7 +549,7 @@ std::string GenerateRust(const Parser &parser, const GeneratorOptions &opts) {
     code = "// automatically generated by the FlatBuffers compiler,"
            " do not modify\n\n";
 
-    code += "use flatbuffers;\n\n";
+    code += "use flatbuffers as fb;\n\n";
 
     if (opts.include_dependence_headers) {
       // No-op for rust.
