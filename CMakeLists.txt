@@ -24,6 +24,7 @@ set(FlatBuffers_Compiler_SRCS
   include/flatbuffers/reflection_generated.h
   src/idl_parser.cpp
   src/idl_gen_cpp.cpp
+  src/idl_gen_rs.cpp
   src/idl_gen_general.cpp
   src/idl_gen_go.cpp
   src/idl_gen_python.cpp
