@@ -267,7 +267,7 @@ impl<'x, T> Indirect<&'x T> for Offset<T> {
 }
 
 impl<T> Offset<T> {
-    fn new(o: UOffset) -> Offset<T> {
+    pub fn new(o: UOffset) -> Offset<T> {
         Offset {
             inner: o,
             _t:    marker::PhantomData,
@@ -496,10 +496,11 @@ impl Struct {
     }
 }
 
-fn get_root<T>(buf: &[u8]) -> &T {
+pub fn get_root<T>(buf: &[u8]) -> &T {
     unsafe {
         let base         = mem::transmute(&buf[0]);
         let off: UOffset = Endian::read_le(base);
+
         mem::transmute(offset(base, off as usize))
     }
 }
@@ -517,14 +518,14 @@ impl VecDownward {
 
         VecDownward {
             inner: vec,
-            next:  16,
+            next:  initial_capacity,
         }
     }
 
     fn data(&self) -> &[u8] { &self.inner[self.next..] }
 
     fn data_at(&self, offset: usize) -> &[u8] {
-        &self.inner[self.len() - offset..]
+        &self.inner[self.inner.len() - offset..]
     }
 
     fn len(&self) -> usize { self.inner.len() - self.next }
@@ -581,7 +582,7 @@ fn field_index_to_offset(field_id: VOffset) -> VOffset {
 }
 
 fn padding_bytes(buf_size: usize, scalar_size: usize) -> usize {
-  (!buf_size + 1) & (scalar_size - 1)
+    (!buf_size).wrapping_add(1) & (scalar_size - 1)
 }
 
 struct FieldLoc {

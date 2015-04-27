@@ -213,7 +213,13 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
     if (!field.deprecated) {  // Deprecated fields won't be accessible.
       GenComment(field.doc_comment, code_ptr, nullptr, "  ");
       code += "    pub fn " + field.name + "(&self) -> ";
+      if (!IsScalar(field.value.type.base_type) || field.value.type.enum_def) {
+          code += "Option<";
+      }
       code += GenTypeGet(parser, field.value.type, "", "&", "", true);
+      if (!IsScalar(field.value.type.base_type) || field.value.type.enum_def) {
+          code += ">";
+      }
       code += " {\n";
       code += "        ";
       // Call a different accessor for pointers, that indirects.
@@ -329,12 +335,20 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
   // Generate a builder struct, with methods of the form:
   // void add_name(type name) { fbb_.AddElement<type>(offset, name, default); }
   code += "pub struct " + struct_def.name;
-  code += "Builder {\n";
-  code += "    fbb:   &mut fb::FlatBufferBuilder,\n";
-  code += "    start: UOffset,\n";
+  code += "Builder<'x> {\n";
+  code += "    fbb:   &'x mut fb::FlatBufferBuilder,\n";
+  code += "    start: fb::UOffset,\n";
   code += "}\n\n";
 
-  code += "impl " + struct_def.name + "Builder {\n";
+  code += "impl<'x> " + struct_def.name + "Builder<'x> {\n";
+  code += "    pub fn new(fbb: &'x mut fb::FlatBufferBuilder) -> ";
+  code += struct_def.name + "Builder<'x> {\n";
+  code += "        let start = fbb.start_table();\n";
+  code += "        " + struct_def.name + "Builder {\n";
+  code += "            fbb:   fbb,\n";
+  code += "            start: start,\n";
+  code += "        }\n";
+  code += "    }\n\n";
   for (auto it = struct_def.fields.vec.begin();
        it != struct_def.fields.vec.end();
        ++it) {
@@ -345,7 +359,7 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
       code += ") {\n";
       code += "        self.fbb.add_";
       if (IsScalar(field.value.type.base_type)) {
-        code += "scalar<" + GenTypeWire(parser, field.value.type, "", false);
+        code += "scalar::<" + GenTypeWire(parser, field.value.type, "", false);
         code += ">";
       } else if (IsStruct(field.value.type)) {
         code += "struct";
@@ -359,14 +373,7 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
       code += ")\n    }\n\n";
     }
   }
-  code += "    pub fn new(fbb: &mut fb::FlatBufferBuilder) {\n";
-  code += "        let start = fbb.start_table();\n";
-  code += "        fb::FlatBufferBuilder {\n";
-  code += "            fbb:   fbb,\n";
-  code += "            start: start,\n";
-  code += "        }\n";
-  code += "    }\n\n";
-  code += "    pub fn  finish() -> fb::Offset<" + struct_def.name;
+  code += "    pub fn finish(&mut self) -> fb::Offset<" + struct_def.name;
   code += "> {\n";
   code += "        let o = fb::Offset::new(";
   code += "self.fbb.end_table(self.start, ";
