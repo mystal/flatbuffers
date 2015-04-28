@@ -21,6 +21,16 @@
 namespace flatbuffers {
 namespace rust {
 
+
+
+static bool IsEnum(const Type &type) {
+  return IsScalar(type.base_type) && type.enum_def;
+}
+
+static bool IsBool(const Type &type) {
+  return type.base_type == BASE_TYPE_BOOL;
+}
+
 // Ensure that a type is prefixed with its module whenever it is used
 // outside of its module.
 //
@@ -106,9 +116,13 @@ static std::string GenTypeWire(const Parser &parser, const Type &type,
 static std::string GenTypeGet(const Parser &parser, const Type &type,
                               const char *afterbasic, const char *beforeptr,
                               const char *afterptr, bool real_enum) {
-  return IsScalar(type.base_type)
-    ? GenTypeBasic(parser, type, real_enum) + afterbasic
-    : beforeptr + GenTypePointer(parser, type) + afterptr;
+  if (IsBool(type)) {
+    return "bool";
+  } else if (IsScalar(type.base_type)) {
+    return GenTypeBasic(parser, type, real_enum) + afterbasic;
+  } else {
+    return beforeptr + GenTypePointer(parser, type) + afterptr;
+  }
 }
 
 // Generate an enum declaration and an enum string lookup table.
@@ -175,11 +189,17 @@ std::string GenUnderlyingCast(const FieldDef &field, bool from,
     #undef FLATBUFFERS_TD
   };
 
-  return field.value.type.enum_def && IsScalar(field.value.type.base_type)
-      ? (from
-        ? "::num::FromPrimitive::from_i64(" + val  + " as i64)"
-        : val + " as " + rstypename[field.value.type.base_type])
-      : val;
+  if (field.value.type.enum_def && IsScalar(field.value.type.base_type)) {
+    return from
+      ? "::num::FromPrimitive::from_i64(" + val  + " as i64)"
+      : val + " as " + rstypename[field.value.type.base_type];
+  } else if (field.value.type.base_type == BASE_TYPE_BOOL) {
+    return from
+      ? val + " != 0"
+      : "if " + val + " { 0u8 } else { 1u8 }";
+  } else {
+    return val;
+  }
 }
 
 // Generate an accessor struct, builder structs & function for a table.
@@ -225,7 +245,7 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
       // Call a different accessor for pointers, that indirects.
       std::string call = std::string() + "self.inner.";
       call += IsScalar(field.value.type.base_type)
-        ? "get_field" + (field.value.type.enum_def
+        ? "get_field" + (IsEnum(field.value.type) || IsBool(field.value.type)
             // For enums, we need explicit type information on `get_field' (see generated code).
             ? "::<" +  std::string(rstypename[field.value.type.base_type]) + ">"
             : std::string())
@@ -355,12 +375,18 @@ static void GenTable(const Parser &parser, StructDef &struct_def,
     auto &field = **it;
     if (!field.deprecated) {
       code += "    pub fn add_" + field.name + "(&mut self, ";
-      code += field.name + ": " + GenTypeWire(parser, field.value.type, "", true);
+      if (IsBool(field.value.type)) {
+        code += field.name + ": bool";
+      } else {
+        code += field.name + ": " + GenTypeWire(parser, field.value.type, "", true);
+      }
       code += ") {\n";
       code += "        self.fbb.add_";
       if (IsScalar(field.value.type.base_type)) {
-        code += "scalar::<" + GenTypeWire(parser, field.value.type, "", false);
-        code += ">";
+        code += "scalar";
+        if (IsBool(field.value.type) || IsEnum(field.value.type)) {
+          code += "::<" + GenTypeWire(parser, field.value.type, "", false) + ">";
+        }
       } else if (IsStruct(field.value.type)) {
         code += "struct";
       } else {
