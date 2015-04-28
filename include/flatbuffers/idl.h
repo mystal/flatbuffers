@@ -37,7 +37,7 @@ namespace flatbuffers {
 #define FLATBUFFERS_GEN_TYPES_SCALAR(TD) \
   TD(NONE,   "",       uint8_t,  byte,   byte,    byte,   u8) \
   TD(UTYPE,  "",       uint8_t,  byte,   byte,    byte,   u8) /* begin scalar/int */ \
-  TD(BOOL,   "bool",   uint8_t,  boolean,byte,    bool,   bool) \
+  TD(BOOL,   "bool",   uint8_t,  boolean,byte,    bool,   u8) \
   TD(CHAR,   "byte",   int8_t,   byte,   int8,    sbyte,  i8) \
   TD(UCHAR,  "ubyte",  uint8_t,  byte,   byte,    byte,   u8) \
   TD(SHORT,  "short",  int16_t,  short,  int16,   short,  i16) \
