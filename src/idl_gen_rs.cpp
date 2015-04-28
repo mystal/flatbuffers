@@ -482,6 +482,7 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
   // Variables are private because they contain little endian data on all
   // platforms.
   GenComment(struct_def.doc_comment, code_ptr, nullptr);
+  code += "#[derive(Clone,Copy)]\n";
   code += "#[packed] pub struct " + struct_def.name + " {\n";
   int padding_id = 0;
   for (auto it = struct_def.fields.vec.begin();
@@ -489,7 +490,11 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
        ++it) {
     auto &field = **it;
     code += "    " + field.name + ": ";
-    code += GenTypeGet(parser, field.value.type, "", "&", "", false) + ",\n",
+    if (IsBool(field.value.type)) {
+        code += "u8,\n";
+    } else {
+        code += GenTypeGet(parser, field.value.type, "", "", "", false) + ",\n";
+    }
     GenPadding(field, [&code, &padding_id](int bits) {
       code += "    __padding" + NumToString(padding_id++);
       code += ": u" + NumToString(bits) + ",\n";
@@ -522,7 +527,7 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
       code += GenUnderlyingCast(field, false, field.name);
       code += "),\n";
     } else {
-      code += field.name + ",\n";
+      code += "*" + field.name + ",\n";
     }
     GenPadding(field, [&code, &padding_id](int bits) {
       (void)bits;
@@ -542,10 +547,9 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
     code += "    pub fn " + field.name + "(&self) -> ";
     code += GenTypeGet(parser, field.value.type, "", "&", "", true);
     code += " { ";
-    code += GenUnderlyingCast(field, true,
-      IsScalar(field.value.type.base_type)
-        ? "fb::Endian::from_le(self." + field.name + ")"
-        : "self." + field.name);
+    code += IsScalar(field.value.type.base_type)
+        ? GenUnderlyingCast(field, true, "fb::Endian::from_le(self." + field.name + ")")
+        : "&self." + field.name;
     code += " }\n\n";
   }
   code += "}\n\n";
