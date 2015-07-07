@@ -489,7 +489,7 @@ static void GenStruct(const Parser &parser, StructDef &struct_def,
   // platforms.
   GenComment(struct_def.doc_comment, code_ptr, nullptr);
   code += "#[derive(Clone,Copy)]\n";
-  code += "#[packed] pub struct " + struct_def.name + " {\n";
+  code += "#[repr(packed)] #[repr(C)] pub struct " + struct_def.name + " {\n";
   int padding_id = 0;
   for (auto it = struct_def.fields.vec.begin();
        it != struct_def.fields.vec.end();
