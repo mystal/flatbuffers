@@ -78,8 +78,14 @@ static std::string GenTypePointer(const Parser &parser, const Type &type) {
     case BASE_TYPE_STRING:
       return "fb::String";
     case BASE_TYPE_VECTOR:
-      return "fb::Vector<" +
-             GenTypeWire(parser, type.VectorType(), "", false) + ">";
+      if (!IsScalar(type.VectorType().base_type) && !IsStruct(type.VectorType())) {
+        return "fb::Vector<" +
+          GenTypeWire(parser, type.VectorType(), "", false) + ", &" +
+          GenTypePointer(parser, type.VectorType()) + ">";
+      } else {
+        return "fb::Vector<" +
+          GenTypeWire(parser, type.VectorType(), "", false) + ">";
+      }
     case BASE_TYPE_STRUCT: {
       return WrapInModule(parser, *type.struct_def);
     }
