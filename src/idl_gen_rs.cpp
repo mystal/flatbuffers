@@ -76,7 +76,7 @@ static std::string GenTypeWire(const Parser &parser, const Type &type,
 static std::string GenTypePointer(const Parser &parser, const Type &type) {
   switch (type.base_type) {
     case BASE_TYPE_STRING:
-      return "fb::String";
+      return "fb::Str";
     case BASE_TYPE_VECTOR:
       if (!IsScalar(type.VectorType().base_type) && !IsStruct(type.VectorType())) {
         return "fb::Vector<" +
